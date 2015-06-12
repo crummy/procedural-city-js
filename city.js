@@ -9,12 +9,12 @@ animate();
 
 function init() {
   renderer = new THREE.WebGLRenderer();
-  renderer.setClearColor(0xd8e7ff);
+  renderer.setClearColor(0x343);
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
     
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0xd0e0f0, 0.0025);
+  scene.fog = new THREE.FogExp2(0x232, 0.0025);
   
   camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 1, 3000);
   camera.position.set(-5, 1.1, 1);
@@ -28,7 +28,7 @@ function init() {
   light.position.set(0.75, 1, 0.25);
   scene.add(light);
   
-  var plane = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshBasicMaterial({color: 0x333333}));
+  var plane = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshBasicMaterial({color: 0x111}));
   plane.rotation.x = -90 *Math.PI/180;
   scene.add(plane);
   
@@ -111,12 +111,12 @@ function generateTexture() {
   canvas.height = 64;
 
   var context = canvas.getContext( '2d' );
-  context.fillStyle = '#ffffff';
+  context.fillStyle = '#111';
   context.fillRect( 0, 0, 32, 64 );
 
   for ( var y = 2; y < 64; y += 2 ) {
     for ( var x = 0; x < 32; x += 2 ) {
-      var value = Math.floor( Math.random() * 64 );
+      var value = Math.floor( Math.random() * 128 );
       context.fillStyle = 'rgb(' + [ value, value, value ].join( ',' )  + ')';
       context.fillRect( x, y, 2, 1 );
     }
