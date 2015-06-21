@@ -1,8 +1,6 @@
 var scene, camera, renderer;
 var light, controls;
 var lastTime;
-var cityBlocksX = 10;
-var cityBlocksZ = 10;
 
 init();
 animate();
@@ -17,7 +15,7 @@ function init() {
   scene.fog = new THREE.FogExp2(0x454, 0.005);
   
   camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 1, 3000);
-  camera.position.set(-5, 1.1, 1);
+  camera.position.set(-32, 32, 1);
   
   controls = new THREE.FirstPersonControls( camera );
   controls.movementSpeed = 20;
@@ -32,17 +30,18 @@ function init() {
   plane.rotation.x = -90 *Math.PI/180;
   scene.add(plane);
   
-  var geometry = new THREE.BoxGeometry(1, 1, 1);
-  var center = new THREE.Matrix4().makeTranslation( 0, 0.5, 0 );
-  var tall = new THREE.Matrix4().makeScale(1, 2, 1);
-  geometry.applyMatrix(center);
-  geometry.applyMatrix(tall);
-  
   var buildings = new Buildings();
   var city = new THREE.Geometry();
+  var cityBlocksX = 10;
+  var cityBlocksZ = 10;
+  
+  var center = new THREE.Matrix4().makeTranslation( 0, 0.5, 0 );
+  var scale = new THREE.Matrix4().makeScale(20, 20, 20);
   for (var x = 0; x < cityBlocksX; ++x) {
     for (var z = 0; z < cityBlocksZ; ++z) {
-      var building = buildings.random(x, z);
+      var building = buildings.random();
+      building.applyMatrix(scale);
+      building.applyMatrix(new THREE.Matrix4().makeTranslation(32 * x, 0, 32 * z));
       city.merge(building, building.matrix);
     }
   }
@@ -59,49 +58,120 @@ function init() {
 }
 
 function Buildings() {
-  var blockSize = 0.8;
-  var box = new THREE.BoxGeometry(1, 1, 1);
-  var initialMatrix = new THREE.Matrix4().makeTranslation(0, 0.5, 0);
   
-  this.random = function(x, z) {
-    return Math.random() > 0.5 ? this.bland(x,z) : this.modern(x,z); 
-  }
+  var baseBox = new THREE.BoxGeometry(1, 1, 1);
+  var black = new THREE.Color().setRGB(0, 0, 0);
+  baseBox.faces[4].color = black;
+  baseBox.faces[5].color = black;
+  baseBox.applyMatrix(new THREE.Matrix4().makeTranslation( 0, 0.5, 0 ));
   
-  this.bland = function(x, z, width, height) {
-    if (width == undefined) width = blockSize;
-    if (height == undefined) height = blockSize;
+  this.random = function() {
+    var cubeChance = 0.5;
+    var stackChance = cubeChance + 0.3;
     
-    // start from a simple box
-    var geometry = box.clone();
-    // shift center, so transforms occur from bottom of box
-    geometry.applyMatrix(initialMatrix);
-    // grow it upwards, and squeeze it to allow for streets in between
-    var heightAddition = Math.random() * Math.random() * 2;
-    var scaleMatrix = new THREE.Matrix4().makeScale(1 * width, 1 + heightAddition, 1 * height);
-    geometry.applyMatrix(scaleMatrix);
-    // shift it into place
-    var translationMatrix = new THREE.Matrix4().makeTranslation(x, 0, z);
-    geometry.applyMatrix(translationMatrix);
+    var choice = Math.random();
+    if (choice < cubeChance) {
+       return this.cube();
+    } else if (choice < stackChance) {
+      return this.stack(); 
+    } else {
+      return this.blocky(); 
+    }
+  }
+  
+  this.cube = function(width, height) {
+    var cubeHeightMin = 1;
+    var cubeHeightMax = 2;
+    var roofChance = 0.3;
+    
+    var geometry = baseBox.clone();
+    
+    var heightAddition = Math.random() * Math.random() * (cubeHeightMax - cubeHeightMin);
+    geometry.applyMatrix(new THREE.Matrix4().makeScale(1, cubeHeightMin + heightAddition, 1));
+    
+    if (Math.random() < roofChance) {
+      var roof = makeCap(geometry);
+      geometry.merge(roof, roof.matrix);
+    }
+  
     return geometry;
   }
   
-  this.modern = function(x, z) {
+  this.blocky = function() {
+    var blockAmount = Math.ceil(Math.random() * 2) + 2;
+    var cubeHeightMin = 1;
+    var cubeHeightMax = 3;
+    
     var geometry = new THREE.Geometry();
-    var box1 = this.bland(x, z, Math.random(), Math.random());
-    var box2 = this.bland(x, z, Math.random(), Math.random());
-    var box3 = this.bland(x, z, Math.random(), Math.random());
-    geometry.merge(box1, box1.matrix);
-    geometry.merge(box2, box2.matrix);
-    geometry.merge(box3, box3.matrix);
+    for (var blockNumber = 0; blockNumber < blockAmount; ++blockNumber) {
+      var width = 0.1 + Math.random() * 0.9;
+      var depth = 0.1 + Math.random() * 0.9;
+      var height = Math.random() * (cubeHeightMax - cubeHeightMin);
+      var box = baseBox.clone();
+      box.applyMatrix(new THREE.Matrix4().makeScale(width, cubeHeightMin + height, depth));
+      var xShift = Math.random() * (1-width) - (1-width)/2;
+      var zShift = Math.random() * (1-depth) - (1-depth)/2;
+      box.applyMatrix(new THREE.Matrix4().makeTranslation(xShift, 0, zShift));
+      geometry.merge(box, box.matrix);
+    }
     return geometry;
   }
+  
+  
+  this.stack = function() {
+    var stackAmount = Math.ceil(Math.random() * 3) + 1;
+    var stackHeightMin = 0.7;
+    var stackHeightMax = 1.5;
+    
+    var geometry = new THREE.Geometry();
+    var lastSize = 1;
+    var lastTop = 0;
+    for (var stackNumber = 0; stackNumber < stackAmount; ++stackNumber) {
+      var size = (1 - Math.random() * Math.random()) * lastSize;
+      var height = Math.random() * (stackHeightMax - stackHeightMin);
+      var box = baseBox.clone();
+      box.applyMatrix(new THREE.Matrix4().makeScale(size, stackHeightMin + height, size));
+      box.applyMatrix(new THREE.Matrix4().makeTranslation(0, lastTop, 0));
+      if (stackNumber != stackAmount - 1) {
+        var cap = makeCap(box);
+        box.merge(cap, cap.matrix);
+      }
+      
+      lastSize = size;
+      box.computeBoundingBox();
+      lastTop = box.boundingBox.max.y;
+      geometry.merge(box, box.matrix);
+    }
+    return geometry;
+  }
+  
+  function makeCap(building) {
+    var roofHeight = 0.01 + Math.random() * 0.1;
+    var roofOverhang = Math.random() * 0.05;
+    
+    building.computeBoundingBox();
+    var bbox = building.boundingBox;
+    var size = building.boundingBox.size();
+    var cube = baseBox.clone();
+    cube.applyMatrix(new THREE.Matrix4().makeScale(size.x + roofOverhang*2, roofHeight, size.z + roofOverhang*2));
+    
+    var center = building.center();
+    cube.applyMatrix(new THREE.Matrix4().makeTranslation(0, bbox.max.y, 0));
+    
+    for (var index = 0; index < cube.faces.length; ++index) {
+      cube.faces[index].color = new THREE.Color().setRGB(0, 0, 0);
+    }
+    
+    return cube;
+  }
+  
 }
 
 function animate() {
   requestAnimationFrame( animate );
   var time = performance.now() / 1000;
-  controls.update( time - lastTime );
-  renderer.render( scene, camera ); 
+  controls.update(time - lastTime);
+  renderer.render(scene, camera); 
   lastTime = time;
 }
 
